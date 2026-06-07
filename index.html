@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wave Card Generator</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0c0c0e;
+      --surface: #141416;
+      --border: rgba(255,255,255,0.07);
+      --border-hover: rgba(255,255,255,0.15);
+      --text-primary: #f0efec;
+      --text-muted: rgba(240,239,236,0.45);
+      --text-dim: rgba(240,239,236,0.22);
+      --radius-card: 20px;
+      --radius-input: 10px;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: 'Syne', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+    .page { width: 100%; max-width: 1080px; display: flex; flex-direction: column; gap: 36px; }
+    .header { display: flex; flex-direction: column; gap: 6px; }
+    .header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+    .header p { font-size: 13px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+
+    /* MODE TOGGLE */
+    .mode-toggle {
+      display: inline-flex; gap: 0;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden;
+    }
+    .mode-btn {
+      padding: 9px 22px; font-family: 'DM Mono', monospace; font-size: 12px;
+      letter-spacing: 0.05em; border: none; background: none;
+      color: var(--text-dim); cursor: pointer; transition: all 0.2s;
+    }
+    .mode-btn.active { background: rgba(255,255,255,0.07); color: var(--text-primary); }
+    .mode-btn:hover:not(.active) { color: var(--text-muted); }
+
+    .workspace { display: grid; grid-template-columns: 1fr 460px; gap: 28px; align-items: start; }
+    .controls-col { display: flex; flex-direction: column; gap: 18px; }
+
+    /* PANEL */
+    .panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-card); padding: 20px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .panel-label {
+      font-size: 10px; font-family: 'DM Mono', monospace;
+      letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-dim);
+    }
+    .color-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .color-field { display: flex; flex-direction: column; gap: 6px; }
+    .cf-label { display: flex; justify-content: space-between; align-items: center; }
+    .cf-label span:first-child { font-size: 11px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+    .layer-tag {
+      font-size: 10px; font-family: 'DM Mono', monospace;
+      color: var(--text-dim); background: rgba(255,255,255,0.04);
+      padding: 1px 6px; border-radius: 4px;
+    }
+    .color-row {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255,255,255,0.03); border: 1px solid var(--border);
+      border-radius: var(--radius-input); padding: 7px 10px; transition: border-color 0.2s;
+    }
+    .color-row:focus-within { border-color: var(--border-hover); }
+    .swatch-wrap { position: relative; width: 24px; height: 24px; flex-shrink: 0; }
+    .swatch-wrap input[type="color"] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: none; }
+    .swatch { width: 24px; height: 24px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.12); pointer-events: none; }
+    .hex-input {
+      flex: 1; background: none; border: none; outline: none;
+      color: var(--text-primary); font-family: 'DM Mono', monospace; font-size: 12px; letter-spacing: 0.04em;
+    }
+    .op-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+    .op-row label { font-size: 10px; color: var(--text-dim); font-family: 'DM Mono', monospace; white-space: nowrap; }
+    .op-row .op-val { font-size: 10px; color: var(--text-dim); font-family: 'DM Mono', monospace; min-width: 28px; text-align: right; }
+    .divider { height: 1px; background: var(--border); }
+
+    /* WAVE TABS */
+    .wave-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); overflow: hidden; }
+    .wave-tabs { display: grid; grid-template-columns: 1fr 1fr 1fr; border-bottom: 1px solid var(--border); }
+    .wave-tab {
+      padding: 11px 0; text-align: center; font-size: 11px; font-family: 'DM Mono', monospace;
+      color: var(--text-dim); cursor: pointer; border: none; background: none;
+      transition: color 0.2s, background 0.2s; border-right: 1px solid var(--border); letter-spacing: 0.05em;
+    }
+    .wave-tab:last-child { border-right: none; }
+    .wave-tab:hover { color: var(--text-muted); background: rgba(255,255,255,0.02); }
+    .wave-tab.active { color: var(--text-primary); background: rgba(255,255,255,0.04); }
+    .wave-tab-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; vertical-align: middle; margin-top: -1px; }
+    .wave-pane { display: none; padding: 20px; flex-direction: column; gap: 14px; }
+    .wave-pane.active { display: flex; }
+
+    /* BLUR PANEL */
+    .blur-panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-card); padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+    /* SLIDERS */
+    .slider-field { display: flex; flex-direction: column; gap: 7px; }
+    .slider-row { display: flex; justify-content: space-between; align-items: center; }
+    .slider-row span:first-child { font-size: 12px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+    .sval { font-size: 12px; font-family: 'DM Mono', monospace; color: var(--text-dim); }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 3px;
+      border-radius: 2px; background: rgba(255,255,255,0.1); outline: none; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 13px; height: 13px; border-radius: 50%;
+      background: var(--text-primary); border: none; cursor: pointer; transition: transform 0.15s;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover { transform: scale(1.25); }
+
+    /* CANVAS AREA */
+    .card-area { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+    .canvas-wrap {
+      border-radius: 24px; overflow: hidden;
+      box-shadow: 0 40px 80px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.05);
+    }
+    canvas { display: block; }
+    .card-meta { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+    .meta-chip {
+      font-size: 11px; font-family: 'DM Mono', monospace; color: var(--text-dim);
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      padding: 5px 11px; border-radius: 6px;
+    }
+    .btn-export {
+      font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 600;
+      color: var(--bg); background: var(--text-primary); border: none;
+      border-radius: 8px; padding: 8px 18px; cursor: pointer; transition: opacity 0.2s, transform 0.15s;
+    }
+    .btn-export:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn-export:active { transform: scale(0.97); }
+
+    .hidden { display: none !important; }
+    @media (max-width: 780px) { .workspace { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <h1>Wave Card Generator</h1>
+    <p>// 500 × 500px · wave + mesh blur modes · export PNG</p>
+  </div>
+
+  <!-- MODE TOGGLE -->
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="btn-wave" onclick="setMode('wave')">⌁ Wave</button>
+      <button class="mode-btn" id="btn-blur" onclick="setMode('blur')">◈ Mesh Blur</button>
+    </div>
+    <span style="font-size:12px; color:var(--text-dim); font-family:'DM Mono',monospace;" id="mode-hint">layered wave shapes</span>
+  </div>
+
+  <div class="workspace">
+    <div class="controls-col">
+
+      <!-- COLOR PANEL — always visible -->
+      <div class="panel">
+        <span class="panel-label">Color Layers</span>
+        <div class="color-grid">
+          <div class="color-field">
+            <div class="cf-label"><span>Background</span><span class="layer-tag">L1</span></div>
+            <div class="color-row">
+              <div class="swatch-wrap"><div class="swatch" id="sw1"></div><input type="color" id="c1" value="#0a0a12"></div>
+              <input type="text" class="hex-input" id="c1t" value="#0a0a12" maxlength="7" spellcheck="false">
+            </div>
+          </div>
+          <div class="color-field">
+            <div class="cf-label"><span>Mid wave</span><span class="layer-tag">L2</span></div>
+            <div class="color-row">
+              <div class="swatch-wrap"><div class="swatch" id="sw2"></div><input type="color" id="c2" value="#3d1fa8"></div>
+              <input type="text" class="hex-input" id="c2t" value="#3d1fa8" maxlength="7" spellcheck="false">
+            </div>
+            <div class="op-row">
+              <label>Opacity</label>
+              <input type="range" id="op2" min="10" max="100" value="72" step="1">
+              <span class="op-val" id="op2v">72%</span>
+            </div>
+          </div>
+          <div class="color-field">
+            <div class="cf-label"><span>Main wave</span><span class="layer-tag">L3</span></div>
+            <div class="color-row">
+              <div class="swatch-wrap"><div class="swatch" id="sw3"></div><input type="color" id="c3" value="#5b21f5"></div>
+              <input type="text" class="hex-input" id="c3t" value="#5b21f5" maxlength="7" spellcheck="false">
+            </div>
+          </div>
+          <div class="color-field">
+            <div class="cf-label"><span>Bottom base</span><span class="layer-tag">L4</span></div>
+            <div class="color-row">
+              <div class="swatch-wrap"><div class="swatch" id="sw4"></div><input type="color" id="c4" value="#e8e0ff"></div>
+              <input type="text" class="hex-input" id="c4t" value="#e8e0ff" maxlength="7" spellcheck="false">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WAVE CONTROLS -->
+      <div class="wave-panel" id="wave-controls">
+        <div class="wave-tabs">
+          <button class="wave-tab active" data-tab="l2" onclick="switchTab('l2')">
+            <span class="wave-tab-dot" id="dot-l2" style="background:#3d1fa8"></span>L2 Mid
+          </button>
+          <button class="wave-tab" data-tab="l3" onclick="switchTab('l3')">
+            <span class="wave-tab-dot" id="dot-l3" style="background:#5b21f5"></span>L3 Main
+          </button>
+          <button class="wave-tab" data-tab="l4" onclick="switchTab('l4')">
+            <span class="wave-tab-dot" id="dot-l4" style="background:#e8e0ff"></span>L4 Base
+          </button>
+        </div>
+        <div class="wave-pane active" id="pane-l2">
+          <div class="slider-field"><div class="slider-row"><span>Position</span><span class="sval" id="l2-pos-v">34%</span></div><input type="range" id="l2-pos" min="10" max="80" value="34" step="1"></div>
+          <div class="slider-field"><div class="slider-row"><span>Amplitude</span><span class="sval" id="l2-amp-v">24px</span></div><input type="range" id="l2-amp" min="4" max="70" value="24" step="1"></div>
+          <div class="slider-field"><div class="slider-row"><span>Frequency</span><span class="sval" id="l2-freq-v">2.3</span></div><input type="range" id="l2-freq" min="5" max="60" value="23" step="1"></div>
+          <div class="slider-field"><div class="slider-row"><span>Phase shift</span><span class="sval" id="l2-phase-v">2.1</span></div><input type="range" id="l2-phase" min="0" max="63" value="21" step="1"></div>
+        </div>
+        <div class="wave-pane" id="pane-l3">
+          <div class="slider-field"><div class="slider-row"><span>Position</span><span class="sval" id="l3-pos-v">52%</span></div><input type="range" id="l3-pos" min="20" max="85" value="52" step="1"></div>
+          <div class="slider-field"><div class="slider-row"><span>Amplitude</span><span class="sval" id="l3-amp-v">28px</span></div><input type="range" id="l3-amp" min="4" max="70" value="28" step="1"></div>
+          <div class="slider-field"><div class="slider-row"><span>Frequency</span><span class="sval" id="l3-freq-v">2.0</span></div><input type="range" id="l3-freq" min="5" max="60" value="20" step="1"></div>
+          <div class="slider-field"><div class="slider-row"><span>Phase shift</span><span class="sval" id="l3-phase-v">0.0</span></div><input type="range" id="l3-phase" min="0" max="63" value="0" step="1"></div>
+        </div>
+        <div class="wave-pane" id="pane-l4">
+          <div class="slider-field"><div class="slider-row"><span>Position</span><span class="sval" id="l4-pos-v">65%</span></div><input type="range" id="l4-pos" min="30" max="95" value="65" step="1"></div>
+          <div class="slider-field"><div class="slider-row"><span>Amplitude</span><span class="sval" id="l4-amp-v">20px</span></div><input type="range" id="l4-amp" min="4" max="70" value="20" step="1"></div>
+          <div class="slider-field"><div class="slider-row"><span>Frequency</span><span class="sval" id="l4-freq-v">2.0</span></div><input type="range" id="l4-freq" min="5" max="60" value="20" step="1"></div>
+          <div class="slider-field"><div class="slider-row"><span>Phase shift</span><span class="sval" id="l4-phase-v">0.9</span></div><input type="range" id="l4-phase" min="0" max="63" value="9" step="1"></div>
+        </div>
+      </div>
+
+      <!-- BLUR CONTROLS -->
+      <div class="blur-panel hidden" id="blur-controls">
+        <span class="panel-label">Mesh Blur Settings</span>
+        <div class="slider-field">
+          <div class="slider-row"><span>Blur radius</span><span class="sval" id="blur-r-v">160px</span></div>
+          <input type="range" id="blur-r" min="40" max="320" value="160" step="4">
+        </div>
+        <div class="slider-field">
+          <div class="slider-row"><span>Glow spread</span><span class="sval" id="blur-spread-v">70%</span></div>
+          <input type="range" id="blur-spread" min="20" max="100" value="70" step="1">
+        </div>
+        <div class="slider-field">
+          <div class="slider-row"><span>L2 orb X</span><span class="sval" id="orb2x-v">25%</span></div>
+          <input type="range" id="orb2x" min="0" max="100" value="25" step="1">
+        </div>
+        <div class="slider-field">
+          <div class="slider-row"><span>L2 orb Y</span><span class="sval" id="orb2y-v">70%</span></div>
+          <input type="range" id="orb2y" min="0" max="100" value="70" step="1">
+        </div>
+        <div class="slider-field">
+          <div class="slider-row"><span>L3 orb X</span><span class="sval" id="orb3x-v">70%</span></div>
+          <input type="range" id="orb3x" min="0" max="100" value="70" step="1">
+        </div>
+        <div class="slider-field">
+          <div class="slider-row"><span>L3 orb Y</span><span class="sval" id="orb3y-v">40%</span></div>
+          <input type="range" id="orb3y" min="0" max="100" value="40" step="1">
+        </div>
+        <div class="slider-field">
+          <div class="slider-row"><span>L4 orb X</span><span class="sval" id="orb4x-v">50%</span></div>
+          <input type="range" id="orb4x" min="0" max="100" value="50" step="1">
+        </div>
+        <div class="slider-field">
+          <div class="slider-row"><span>L4 orb Y</span><span class="sval" id="orb4y-v">90%</span></div>
+          <input type="range" id="orb4y" min="0" max="100" value="90" step="1">
+        </div>
+        <div class="slider-field">
+          <div class="slider-row"><span>Noise grain</span><span class="sval" id="noise-v">18%</span></div>
+          <input type="range" id="noise" min="0" max="60" value="18" step="1">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- CANVAS -->
+    <div class="card-area">
+      <div class="canvas-wrap">
+        <canvas id="cv" width="460" height="460"></canvas>
+      </div>
+      <div class="card-meta">
+        <span class="meta-chip">500 × 500 px</span>
+        <span class="meta-chip" id="mode-chip">Wave</span>
+        <button class="btn-export" onclick="exportPNG()">Export PNG ↓</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const cv = document.getElementById('cv');
+  const ctx = cv.getContext('2d');
+  const W = 460, H = 460;
+  let currentMode = 'wave';
+
+  /* ---- MODE ---- */
+  function setMode(m) {
+    currentMode = m;
+    document.getElementById('btn-wave').classList.toggle('active', m === 'wave');
+    document.getElementById('btn-blur').classList.toggle('active', m === 'blur');
+    document.getElementById('wave-controls').classList.toggle('hidden', m !== 'wave');
+    document.getElementById('blur-controls').classList.toggle('hidden', m !== 'blur');
+    document.getElementById('mode-hint').textContent = m === 'wave' ? 'layered wave shapes' : 'soft radial mesh gradient';
+    document.getElementById('mode-chip').textContent = m === 'wave' ? 'Wave' : 'Mesh Blur';
+    drawCard();
+  }
+
+  /* ---- TABS ---- */
+  function switchTab(name) {
+    document.querySelectorAll('.wave-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.wave-pane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
+  }
+  function updateTabDots() {
+    document.getElementById('dot-l2').style.background = document.getElementById('c2').value;
+    document.getElementById('dot-l3').style.background = document.getElementById('c3').value;
+    document.getElementById('dot-l4').style.background = document.getElementById('c4').value;
+  }
+
+  /* ---- UTILS ---- */
+  function hexToRgb(h) {
+    const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h.trim());
+    return r ? [parseInt(r[1],16), parseInt(r[2],16), parseInt(r[3],16)] : [0,0,0];
+  }
+  function rs(id) { return parseInt(document.getElementById(id).value); }
+  function setLabel(id, val) { document.getElementById(id).textContent = val; }
+
+  function roundedClip(r) {
+    ctx.beginPath();
+    ctx.moveTo(r,0); ctx.lineTo(W-r,0); ctx.quadraticCurveTo(W,0,W,r);
+    ctx.lineTo(W,H-r); ctx.quadraticCurveTo(W,H,W-r,H);
+    ctx.lineTo(r,H); ctx.quadraticCurveTo(0,H,0,H-r);
+    ctx.lineTo(0,r); ctx.quadraticCurveTo(0,0,r,0);
+    ctx.closePath(); ctx.clip();
+  }
+
+  /* ---- WAVE DRAW ---- */
+  function wavePath(posY, amp, freq, phase) {
+    ctx.beginPath();
+    ctx.moveTo(0, H);
+    ctx.lineTo(0, posY + amp);
+    for (let x = 0; x <= W; x += 2) {
+      const t = x / W;
+      const y = posY
+        + Math.sin(t * Math.PI * 2 * freq + phase) * amp
+        + Math.sin(t * Math.PI * freq * 3.5 + phase * 1.3) * (amp * 0.25);
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(W, H); ctx.closePath();
+  }
+
+  function drawWave() {
+    const c1 = document.getElementById('c1').value;
+    const c2 = document.getElementById('c2').value;
+    const c3 = document.getElementById('c3').value;
+    const c4 = document.getElementById('c4').value;
+    const op2 = rs('op2') / 100;
+
+    const l2pos = rs('l2-pos'); const l2amp = rs('l2-amp'); const l2freq = rs('l2-freq')/10; const l2phase = rs('l2-phase')/10;
+    const l3pos = rs('l3-pos'); const l3amp = rs('l3-amp'); const l3freq = rs('l3-freq')/10; const l3phase = rs('l3-phase')/10;
+    const l4pos = rs('l4-pos'); const l4amp = rs('l4-amp'); const l4freq = rs('l4-freq')/10; const l4phase = rs('l4-phase')/10;
+
+    setLabel('l2-pos-v', l2pos+'%'); setLabel('l2-amp-v', l2amp+'px'); setLabel('l2-freq-v', l2freq.toFixed(1)); setLabel('l2-phase-v', l2phase.toFixed(1));
+    setLabel('l3-pos-v', l3pos+'%'); setLabel('l3-amp-v', l3amp+'px'); setLabel('l3-freq-v', l3freq.toFixed(1)); setLabel('l3-phase-v', l3phase.toFixed(1));
+    setLabel('l4-pos-v', l4pos+'%'); setLabel('l4-amp-v', l4amp+'px'); setLabel('l4-freq-v', l4freq.toFixed(1)); setLabel('l4-phase-v', l4phase.toFixed(1));
+    setLabel('op2v', rs('op2')+'%');
+
+    ctx.save(); roundedClip(28);
+    ctx.fillStyle = c1; ctx.fillRect(0,0,W,H);
+
+    const rgb2 = hexToRgb(c2);
+    wavePath(H*l2pos/100, l2amp, l2freq, l2phase);
+    ctx.fillStyle = `rgba(${rgb2[0]},${rgb2[1]},${rgb2[2]},${op2})`; ctx.fill();
+
+    wavePath(H*l4pos/100, l4amp, l4freq, l4phase);
+    ctx.fillStyle = c4; ctx.fill();
+
+    wavePath(H*l3pos/100, l3amp, l3freq, l3phase);
+    ctx.fillStyle = c3; ctx.fill();
+
+    const rgb3 = hexToRgb(c3);
+    const gy = H*l3pos/100;
+    const g = ctx.createLinearGradient(0, gy-l3amp*1.4, 0, gy+l3amp*1.4);
+    g.addColorStop(0, `rgba(${rgb3[0]},${rgb3[1]},${rgb3[2]},0)`);
+    g.addColorStop(0.55, `rgba(${rgb3[0]},${rgb3[1]},${rgb3[2]},0.12)`);
+    g.addColorStop(1, `rgba(${rgb3[0]},${rgb3[1]},${rgb3[2]},0)`);
+    ctx.fillStyle = g; ctx.fillRect(0, gy-l3amp*1.4, W, l3amp*2.8);
+    ctx.restore();
+  }
+
+  /* ---- BLUR / MESH DRAW ---- */
+  function drawBlur() {
+    const blurR  = rs('blur-r');
+    const spread = rs('blur-spread') / 100;
+    const o2x = rs('orb2x')/100; const o2y = rs('orb2y')/100;
+    const o3x = rs('orb3x')/100; const o3y = rs('orb3y')/100;
+    const o4x = rs('orb4x')/100; const o4y = rs('orb4y')/100;
+    const noiseAmt = rs('noise') / 100;
+    const op2 = rs('op2') / 100;
+
+    setLabel('blur-r-v',     blurR+'px');
+    setLabel('blur-spread-v', rs('blur-spread')+'%');
+    setLabel('orb2x-v', rs('orb2x')+'%'); setLabel('orb2y-v', rs('orb2y')+'%');
+    setLabel('orb3x-v', rs('orb3x')+'%'); setLabel('orb3y-v', rs('orb3y')+'%');
+    setLabel('orb4x-v', rs('orb4x')+'%'); setLabel('orb4y-v', rs('orb4y')+'%');
+    setLabel('noise-v',  rs('noise')+'%');
+    setLabel('op2v',     rs('op2')+'%');
+
+    const c1 = document.getElementById('c1').value;
+    const c2 = document.getElementById('c2').value;
+    const c3 = document.getElementById('c3').value;
+    const c4 = document.getElementById('c4').value;
+
+    const [r1,g1,b1] = hexToRgb(c1);
+    const [r2,g2,b2] = hexToRgb(c2);
+    const [r3,g3,b3] = hexToRgb(c3);
+    const [r4,g4,b4] = hexToRgb(c4);
+
+    ctx.save(); roundedClip(28);
+
+    // Base background
+    ctx.fillStyle = c1; ctx.fillRect(0,0,W,H);
+
+    // Helper: paint a soft radial orb
+    function orb(cx, cy, color, alpha, radius) {
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      grad.addColorStop(0,   `rgba(${color[0]},${color[1]},${color[2]},${alpha})`);
+      grad.addColorStop(spread, `rgba(${color[0]},${color[1]},${color[2]},${alpha * 0.35})`);
+      grad.addColorStop(1,   `rgba(${color[0]},${color[1]},${color[2]},0)`);
+      ctx.fillStyle = grad;
+      ctx.fillRect(0,0,W,H);
+    }
+
+    // L2 orb — mid color
+    orb(W*o2x, H*o2y, [r2,g2,b2], op2, blurR);
+
+    // L3 orb — main color, slightly larger
+    orb(W*o3x, H*o3y, [r3,g3,b3], 0.92, blurR * 1.1);
+
+    // L4 orb — bottom accent, softer
+    orb(W*o4x, H*o4y, [r4,g4,b4], 0.75, blurR * 0.85);
+
+    // Extra atmosphere: secondary smaller orbs for depth
+    orb(W*o3x*0.4, H*o3y*0.6, [r2,g2,b2], 0.25, blurR * 0.6);
+    orb(W*(1-o2x), H*(1-o2y)*0.5, [r3,g3,b3], 0.2, blurR * 0.55);
+
+    // Soft vignette to darken corners like the reference
+    const vig = ctx.createRadialGradient(W/2, H/2, W*0.25, W/2, H/2, W*0.85);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, `rgba(${r1},${g1},${b1},0.55)`);
+    ctx.fillStyle = vig; ctx.fillRect(0,0,W,H);
+
+    // Grain noise overlay
+    if (noiseAmt > 0) {
+      const imgData = ctx.getImageData(0,0,W,H);
+      const d = imgData.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (Math.random() - 0.5) * noiseAmt * 80;
+        d[i]   = Math.min(255, Math.max(0, d[i]   + n));
+        d[i+1] = Math.min(255, Math.max(0, d[i+1] + n));
+        d[i+2] = Math.min(255, Math.max(0, d[i+2] + n));
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
+
+    ctx.restore();
+  }
+
+  /* ---- MAIN DRAW ---- */
+  function drawCard() {
+    ctx.clearRect(0,0,W,H);
+    if (currentMode === 'wave') drawWave();
+    else drawBlur();
+  }
+
+  /* ---- BINDINGS ---- */
+  [['c1','c1t','sw1'],['c2','c2t','sw2'],['c3','c3t','sw3'],['c4','c4t','sw4']].forEach(([pid,tid,sid]) => {
+    const p = document.getElementById(pid);
+    const t = document.getElementById(tid);
+    const s = document.getElementById(sid);
+    s.style.background = p.value;
+    p.addEventListener('input', () => { t.value = p.value; s.style.background = p.value; updateTabDots(); drawCard(); });
+    t.addEventListener('input', () => {
+      if (/^#[0-9a-fA-F]{6}$/.test(t.value)) { p.value = t.value; s.style.background = t.value; updateTabDots(); drawCard(); }
+    });
+  });
+
+  ['l2-pos','l2-amp','l2-freq','l2-phase',
+   'l3-pos','l3-amp','l3-freq','l3-phase',
+   'l4-pos','l4-amp','l4-freq','l4-phase','op2',
+   'blur-r','blur-spread','orb2x','orb2y','orb3x','orb3y','orb4x','orb4y','noise'
+  ].forEach(id => document.getElementById(id).addEventListener('input', drawCard));
+
+  function exportPNG() {
+    const exp = document.createElement('canvas');
+    exp.width = 500; exp.height = 500;
+    exp.getContext('2d').drawImage(cv, 0, 0, 500, 500);
+    const a = document.createElement('a');
+    a.download = 'wave-card.png';
+    a.href = exp.toDataURL('image/png');
+    a.click();
+  }
+
+  drawCard();
+</script>
+</body>
+</html>
